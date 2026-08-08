@@ -81,7 +81,7 @@ const obstacles = [];
 const clock = new THREE.Clock();
 
 // =====================================================
-// PLAYER PHYSICS
+// PLAYER PHdYSICS
 // =====================================================
 
 const PLAYER_HEIGHT = 1.7;
