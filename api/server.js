@@ -1,45 +1,61 @@
-
-const path = require("path");
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
+
+app.use(express.json());
+
+app.get("/health", (req, res) => {
+    res.json({
+        ok: true,
+        service: "multiplayer-game",
+        time: new Date().toISOString()
+    });
+});
+
 const server = http.createServer(app);
-const io = new Server(server);
 
-const PORT = process.env.PORT || 3000;
-
-app.use(
-    express.static(
-        path.join(__dirname, "..", "client")
-    )
-);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 // =====================================================
-// ROOMS
+// GAME STATE
 // =====================================================
 
 const rooms = new Map();
 const players = new Map();
 
+// =====================================================
+// ROOM CODE
+// =====================================================
+
 function generateRoomCode() {
+
     const characters =
         "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-    let code = "";
+    let code;
 
     do {
+
         code = "";
 
         for (let i = 0; i < 5; i++) {
-            code += characters[
-                Math.floor(
-                    Math.random() *
-                    characters.length
-                )
-            ];
+
+            code +=
+                characters[
+                    Math.floor(
+                        Math.random() *
+                        characters.length
+                    )
+                ];
         }
+
     } while (rooms.has(code));
 
     return code;
@@ -50,21 +66,60 @@ function generateRoomCode() {
 // =====================================================
 
 function spawn() {
+
     return {
-        x: (Math.random() - 0.5) * 24,
-        y: 1.2,
-        z: (Math.random() - 0.5) * 24,
-        ry: Math.random() * Math.PI * 2
+
+        x:
+            (Math.random() - 0.5) * 24,
+
+        y: 1.7,
+
+        z:
+            (Math.random() - 0.5) * 24,
+
+        ry:
+            Math.random() *
+            Math.PI *
+            2
     };
 }
 
 // =====================================================
-// ROOM PLAYERS
+// PLAYER DATA
+// =====================================================
+
+function createPlayer(id) {
+
+    const position = spawn();
+
+    return {
+
+        id,
+
+        name: "Player",
+
+        room: null,
+
+        x: position.x,
+        y: position.y,
+        z: position.z,
+
+        ry: position.ry,
+
+        score: 0,
+
+        deaths: 0
+    };
+}
+
+// =====================================================
+// GET ROOM PLAYERS
 // =====================================================
 
 function getRoomPlayers(roomCode) {
 
     if (!roomCode) {
+
         return [];
     }
 
@@ -76,16 +131,23 @@ function getRoomPlayers(roomCode) {
     );
 }
 
+// =====================================================
+// SEND ROOM PLAYER LIST
+// =====================================================
+
 function broadcastRoom(roomCode) {
 
     if (!roomCode) {
+
         return;
     }
 
-    io.to(roomCode).emit(
-        "players",
-        getRoomPlayers(roomCode)
-    );
+    io
+        .to(roomCode)
+        .emit(
+            "players",
+            getRoomPlayers(roomCode)
+        );
 }
 
 // =====================================================
@@ -101,29 +163,21 @@ io.on(
             socket.id
         );
 
+        const player =
+            createPlayer(
+                socket.id
+            );
+
         players.set(
             socket.id,
-            {
-                id: socket.id,
-
-                name: "Player",
-
-                room: null,
-
-                ...spawn(),
-
-                hp: 100,
-
-                score: 0,
-
-                deaths: 0
-            }
+            player
         );
 
         socket.emit(
             "welcome",
             {
-                id: socket.id
+                id:
+                    socket.id
             }
         );
 
@@ -141,23 +195,13 @@ io.on(
                     );
 
                 if (!player) {
+
                     return;
                 }
 
-                // Leave previous room
-
-                if (player.room) {
-
-                    socket.leave(
-                        player.room
-                    );
-
-                    rooms.delete(
-                        player.room
-                    );
-
-                    player.room = null;
-                }
+                leaveRoom(
+                    socket
+                );
 
                 const roomCode =
                     generateRoomCode();
@@ -186,9 +230,24 @@ io.on(
                         16
                     );
 
-                player.hp = 100;
                 player.score = 0;
+
                 player.deaths = 0;
+
+                const position =
+                    spawn();
+
+                player.x =
+                    position.x;
+
+                player.y =
+                    position.y;
+
+                player.z =
+                    position.z;
+
+                player.ry =
+                    position.ry;
 
                 socket.emit(
                     "roomCreated",
@@ -206,7 +265,7 @@ io.on(
                 );
 
                 console.log(
-                    `${player.name} created room ${roomCode}`
+                    `${player.name} created ${roomCode}`
                 );
             }
         );
@@ -225,6 +284,7 @@ io.on(
                     );
 
                 if (!player) {
+
                     return;
                 }
 
@@ -255,7 +315,12 @@ io.on(
                     return;
                 }
 
-                if (!rooms.has(roomCode)) {
+                const room =
+                    rooms.get(
+                        roomCode
+                    );
+
+                if (!room) {
 
                     socket.emit(
                         "roomError",
@@ -265,16 +330,10 @@ io.on(
                     return;
                 }
 
-                // Leave previous room
-
                 if (player.room) {
 
-                    socket.leave(
-                        player.room
-                    );
-
-                    broadcastRoom(
-                        player.room
+                    leaveRoom(
+                        socket
                     );
                 }
 
@@ -288,14 +347,24 @@ io.on(
                 player.name =
                     name;
 
-                player.hp = 100;
+                player.score = 0;
 
-                const s = spawn();
+                player.deaths = 0;
 
-                player.x = s.x;
-                player.y = s.y;
-                player.z = s.z;
-                player.ry = s.ry;
+                const position =
+                    spawn();
+
+                player.x =
+                    position.x;
+
+                player.y =
+                    position.y;
+
+                player.z =
+                    position.z;
+
+                player.ry =
+                    position.ry;
 
                 socket.emit(
                     "roomJoined",
@@ -304,9 +373,7 @@ io.on(
                             roomCode,
 
                         host:
-                            rooms.get(
-                                roomCode
-                            ).host ===
+                            room.host ===
                             socket.id
                     }
                 );
@@ -316,13 +383,13 @@ io.on(
                 );
 
                 console.log(
-                    `${player.name} joined room ${roomCode}`
+                    `${player.name} joined ${roomCode}`
                 );
             }
         );
 
         // =================================================
-        // NAME / JOIN GAME
+        // NAME / JOIN
         // =================================================
 
         socket.on(
@@ -335,6 +402,7 @@ io.on(
                     );
 
                 if (!player) {
+
                     return;
                 }
 
@@ -374,23 +442,63 @@ io.on(
                     !player.room ||
                     !data
                 ) {
+
                     return;
                 }
 
+                const x =
+                    Number(data.x);
+
+                const y =
+                    Number(data.y);
+
+                const z =
+                    Number(data.z);
+
+                const ry =
+                    Number(data.ry);
+
+                if (
+                    !Number.isFinite(x) ||
+                    !Number.isFinite(y) ||
+                    !Number.isFinite(z) ||
+                    !Number.isFinite(ry)
+                ) {
+
+                    return;
+                }
+
+                // Keep players inside arena
+
                 player.x =
-                    Number(data.x) || 0;
+                    Math.max(
+                        -18.5,
+                        Math.min(
+                            18.5,
+                            x
+                        )
+                    );
 
                 player.y =
                     Math.max(
-                        0.5,
-                        Number(data.y) || 1.2
+                        0.1,
+                        Math.min(
+                            30,
+                            y
+                        )
                     );
 
                 player.z =
-                    Number(data.z) || 0;
+                    Math.max(
+                        -18.5,
+                        Math.min(
+                            18.5,
+                            z
+                        )
+                    );
 
                 player.ry =
-                    Number(data.ry) || 0;
+                    ry;
 
                 socket
                     .to(player.room)
@@ -398,7 +506,7 @@ io.on(
                         "playerState",
                         {
                             id:
-                                socket.id,
+                                player.id,
 
                             x:
                                 player.x,
@@ -413,151 +521,6 @@ io.on(
                                 player.ry
                         }
                     );
-            }
-        );
-
-        // =================================================
-        // SHOOT
-        // =================================================
-
-        socket.on(
-            "shoot",
-            data => {
-
-                const shooter =
-                    players.get(
-                        socket.id
-                    );
-
-                if (
-                    !shooter ||
-                    !shooter.room ||
-                    !data
-                ) {
-                    return;
-                }
-
-                const target =
-                    players.get(
-                        data.targetId
-                    );
-
-                if (
-                    !target ||
-                    target.id ===
-                        shooter.id
-                ) {
-                    return;
-                }
-
-                // Must be in same room
-
-                if (
-                    target.room !==
-                    shooter.room
-                ) {
-                    return;
-                }
-
-                const dx =
-                    target.x -
-                    shooter.x;
-
-                const dy =
-                    target.y -
-                    shooter.y;
-
-                const dz =
-                    target.z -
-                    shooter.z;
-
-                const distance =
-                    Math.sqrt(
-                        dx * dx +
-                        dy * dy +
-                        dz * dz
-                    );
-
-                if (
-                    distance > 70
-                ) {
-                    return;
-                }
-
-                target.hp -= 25;
-
-                io.to(
-                    shooter.room
-                ).emit(
-                    "hit",
-                    {
-                        targetId:
-                            target.id,
-
-                        hp:
-                            target.hp,
-
-                        shooterId:
-                            shooter.id
-                    }
-                );
-
-                // Death
-
-                if (
-                    target.hp <= 0
-                ) {
-
-                    shooter.score++;
-
-                    target.deaths++;
-
-                    target.hp = 100;
-
-                    const s =
-                        spawn();
-
-                    target.x =
-                        s.x;
-
-                    target.y =
-                        s.y;
-
-                    target.z =
-                        s.z;
-
-                    target.ry =
-                        s.ry;
-
-                    io.to(
-                        shooter.room
-                    ).emit(
-                        "respawn",
-                        {
-                            id:
-                                target.id,
-
-                            x:
-                                target.x,
-
-                            y:
-                                target.y,
-
-                            z:
-                                target.z,
-
-                            score:
-                                shooter.score,
-
-                            deaths:
-                                target.deaths
-                        }
-                    );
-
-                    broadcastRoom(
-                        shooter.room
-                    );
-                }
             }
         );
 
@@ -602,7 +565,7 @@ io.on(
 );
 
 // =====================================================
-// LEAVE ROOM FUNCTION
+// LEAVE ROOM
 // =====================================================
 
 function leaveRoom(
@@ -616,6 +579,7 @@ function leaveRoom(
         );
 
     if (!player) {
+
         return;
     }
 
@@ -623,6 +587,7 @@ function leaveRoom(
         player.room;
 
     if (!roomCode) {
+
         return;
     }
 
@@ -634,13 +599,11 @@ function leaveRoom(
     player.room = null;
 
     if (!disconnect) {
+
         socket.leave(
             roomCode
         );
     }
-
-    // If host leaves,
-    // give room to another player
 
     if (
         room &&
@@ -663,14 +626,16 @@ function leaveRoom(
             room.host =
                 remaining[0].id;
 
-            io.to(
-                remaining[0].id
-            ).emit(
-                "hostChanged",
-                {
-                    host: true
-                }
-            );
+            io
+                .to(
+                    remaining[0].id
+                )
+                .emit(
+                    "hostChanged",
+                    {
+                        host: true
+                    }
+                );
 
         } else {
 
@@ -681,7 +646,9 @@ function leaveRoom(
     }
 
     if (
-        rooms.has(roomCode)
+        rooms.has(
+            roomCode
+        )
     ) {
 
         broadcastRoom(
@@ -691,16 +658,13 @@ function leaveRoom(
 }
 
 // =====================================================
-// SERVER
+// VERCEL EXPORT
+// =====================================================
+//
+// IMPORTANT:
+// Do NOT use server.listen() on Vercel.
+//
+// Vercel owns the HTTP server.
 // =====================================================
 
-server.listen(
-    PORT,
-    () => {
-
-        console.log(
-            `FPS server running at http://localhost:${PORT}`
-        );
-    }
-);
-
+module.exports = server;
