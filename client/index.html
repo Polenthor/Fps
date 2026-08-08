@@ -1,0 +1,401 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Neon Arena FPS</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #071019;
+        }
+
+        #menu {
+            position: fixed;
+            inset: 0;
+
+            display: flex;
+            flex-direction: column;
+
+            align-items: center;
+            justify-content: center;
+
+            background:
+                radial-gradient(
+                    circle at center,
+                    #102c3d,
+                    #05090d 70%
+                );
+
+            color: white;
+
+            z-index: 100;
+        }
+
+        #menu h1 {
+            margin: 0;
+
+            font-size: 55px;
+            letter-spacing: 5px;
+        }
+
+        #menu p {
+            color: #8edcff;
+            margin: 8px 0 30px;
+        }
+
+        #name,
+        #roomCode {
+            width: 280px;
+
+            padding: 14px;
+
+            margin: 5px;
+
+            border: 1px solid #31586d;
+            border-radius: 8px;
+
+            background: #0b1720;
+
+            color: white;
+
+            outline: none;
+
+            font-size: 16px;
+
+            text-align: center;
+        }
+
+        button {
+            width: 280px;
+
+            padding: 14px;
+
+            margin: 6px;
+
+            border: none;
+
+            border-radius: 8px;
+
+            background: #168bc0;
+
+            color: white;
+
+            font-size: 17px;
+
+            font-weight: bold;
+
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #20a8e3;
+        }
+
+        #joinButton {
+            background: #273f50;
+        }
+
+        #joinButton:hover {
+            background: #355b70;
+        }
+
+        #roomPanel {
+            display: none;
+
+            flex-direction: column;
+
+            align-items: center;
+        }
+
+        #roomInfo {
+            margin-top: 12px;
+
+            padding: 12px 25px;
+
+            border-radius: 8px;
+
+            background: #0c202c;
+
+            color: #8edcff;
+
+            font-weight: bold;
+
+            letter-spacing: 2px;
+        }
+
+        #roomStatus {
+            margin-top: 12px;
+
+            min-height: 20px;
+
+            color: #ffcf70;
+        }
+
+        #backButton {
+            background: #17242c;
+            width: 180px;
+            font-size: 14px;
+        }
+
+        #hud {
+            position: fixed;
+            inset: 0;
+
+            pointer-events: none;
+
+            z-index: 10;
+
+            color: white;
+        }
+
+        #topbar {
+            position: absolute;
+
+            top: 15px;
+            left: 15px;
+
+            display: flex;
+            gap: 15px;
+        }
+
+        #topbar span {
+            padding: 9px 14px;
+
+            background: rgba(
+                0,
+                0,
+                0,
+                0.55
+            );
+
+            border-radius: 7px;
+
+            font-weight: bold;
+        }
+
+        #scoreboard {
+            position: absolute;
+
+            top: 15px;
+            right: 15px;
+
+            min-width: 180px;
+
+            padding: 10px;
+
+            background: rgba(
+                0,
+                0,
+                0,
+                0.55
+            );
+
+            border-radius: 8px;
+        }
+
+        .row {
+            padding: 5px;
+
+            color: #ddd;
+        }
+
+        .row.me {
+            color: #65d8ff;
+            font-weight: bold;
+        }
+
+        #crosshair {
+            position: absolute;
+
+            left: 50%;
+            top: 50%;
+
+            transform:
+                translate(-50%, -50%);
+
+            font-size: 28px;
+
+            font-weight: bold;
+
+            text-shadow:
+                0 0 5px black;
+        }
+
+        #message {
+            position: absolute;
+
+            left: 50%;
+            top: 60%;
+
+            transform:
+                translateX(-50%);
+
+            font-size: 20px;
+
+            font-weight: bold;
+
+            text-shadow:
+                0 0 8px black;
+        }
+
+        body.flash::after {
+            content: "";
+
+            position: fixed;
+
+            inset: 0;
+
+            background:
+                rgba(
+                    255,
+                    0,
+                    0,
+                    0.18
+                );
+
+            pointer-events: none;
+
+            z-index: 50;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <!-- =================================================
+         MAIN MENU
+         ================================================= -->
+
+    <div id="menu">
+
+        <h1>NEON ARENA</h1>
+
+        <p>
+            Original Multiplayer FPS
+        </p>
+
+        <input
+            id="name"
+            type="text"
+            maxlength="16"
+            placeholder="Enter your name"
+            autocomplete="off"
+        >
+
+        <!-- MAIN ROOM BUTTONS -->
+
+        <button id="createRoomButton">
+            CREATE ROOM
+        </button>
+
+        <button id="joinRoomButton">
+            JOIN ROOM
+        </button>
+
+        <!-- ROOM PANEL -->
+
+        <div id="roomPanel">
+
+            <input
+                id="roomCode"
+                type="text"
+                maxlength="5"
+                placeholder="ROOM CODE"
+                autocomplete="off"
+            >
+
+            <button id="confirmJoinButton">
+                JOIN
+            </button>
+
+            <button id="backButton">
+                BACK
+            </button>
+
+        </div>
+
+        <div id="roomInfo"></div>
+
+        <div id="roomStatus"></div>
+
+        <small>
+            WASD = Move |
+            SHIFT = Sprint |
+            SPACE = Jump |
+            Mouse = Aim |
+            Left Click = Shoot |
+            R = Reload
+        </small>
+
+    </div>
+
+    <!-- =================================================
+         GAME HUD
+         ================================================= -->
+
+    <div id="hud">
+
+        <div id="topbar">
+
+            <span id="health">
+                HP 100
+            </span>
+
+            <span id="ammo">
+                30 / 90
+            </span>
+
+            <span id="status">
+                Connecting...
+            </span>
+
+        </div>
+
+        <div id="scoreboard"></div>
+
+        <div id="crosshair">
+            +
+        </div>
+
+        <div id="message"></div>
+
+    </div>
+
+    <!-- SOCKET.IO -->
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- GAME -->
+
+    <script
+        type="module"
+        src="game.js"
+    ></script>
+
+</body>
+
+</html>
+

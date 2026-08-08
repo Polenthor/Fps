@@ -1,0 +1,16 @@
+{
+  "name": "original-multiplayer-fps",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo \"No build required\""
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
